@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>자습 / 시험 웹 벨</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #101820;
+      font-family: "맑은 고딕", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #ffffff;
+      overflow: hidden;
+    }
+    .wrapper {
+      width: 100%;
+      height: calc(100% - 40px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .panel {
+      text-align: center;
+      padding: 16px 24px;
+      min-width: 320px;
+      max-width: 900px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 8px 0;
+      gap: 12px;
+    }
+    .label-main {
+      flex: 1;
+      text-align: center;
+      word-break: keep-all;
+      white-space: nowrap;
+    }
+    .btn-font {
+      background: transparent;
+      border: none;
+      color: #777;
+      font-weight: bold;
+      font-size: 16px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .btn-font:hover {
+      color: #aaa;
+    }
+
+    #currentEvent {
+      font-weight: 700;
+    }
+    #clock {
+      font-weight: 700;
+    }
+    #date {
+      color: #cccccc;
+    }
+
+    .mode-bar {
+      margin-top: 6px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      font-size: 14px;
+      color: #dddddd;
+    }
+    .mode-bar label {
+      cursor: pointer;
+    }
+    .mode-bar input {
+      margin-right: 4px;
+    }
+
+    .sound-toggle {
+      margin-top: 4px;
+      font-size: 14px;
+    }
+    .sound-toggle button {
+      background: transparent;
+      border: none;
+      color: #bbbbbb;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .sound-toggle button:hover {
+      color: #ffffff;
+    }
+
+    .test-controls {
+      margin-top: 10px;
+      display: none;
+      justify-content: center;
+      gap: 8px;
+    }
+    .test-controls button {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      background: #1f2933;
+      color: #e5e7eb;
+    }
+    .test-controls button:hover {
+      background: #323f4b;
+    }
+
+    #testInfo {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #aaaaaa;
+    }
+
+    .footer {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* 색상 */
+    .event-study { color: #7CE577; }
+    .event-break { color: #E6E675; }
+    .event-meal  { color: #FFA500; }
+    .event-exam  { color: #FF6B6B; }
+    .event-end   { color: #FFFFFF; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="panel">
+
+      <!-- 1줄: 현재 이벤트 -->
+      <div class="row">
+        <button class="btn-font" id="eventFontMinus">−</button>
+        <div id="currentEvent" class="label-main">--</div>
+        <button class="btn-font" id="eventFontPlus">+</button>
+      </div>
+
+      <!-- 2줄: 시계 -->
+      <div class="row">
+        <button class="btn-font" id="clockFontMinus">−</button>
+        <div id="clock" class="label-main">--:--:--</div>
+        <button class="btn-font" id="clockFontPlus">+</button>
+      </div>
+
+      <!-- 3줄: 날짜 -->
+      <div class="row">
+        <button class="btn-font" id="dateFontMinus">−</button>
+        <div id="date" class="label-main">----.--.--</div>
+        <button class="btn-font" id="dateFontPlus">+</button>
+      </div>
+
+      <!-- 모드 선택 -->
+      <div class="mode-bar">
+        <label>
+          <input type="radio" name="mode" value="real" checked>
+          실제 모드
+        </label>
+        <label>
+          <input type="radio" name="mode" value="test">
+          테스트 모드
+        </label>
+      </div>
+
+      <!-- 종소리 ON/OFF -->
+      <div class="sound-toggle">
+        <button id="soundToggleBtn">🔔 ON</button>
+      </div>
+
+      <!-- 테스트 모드 컨트롤 -->
+      <div class="test-controls" id="testControls">
+        <button id="btnPrev">⏮ 이전</button>
+        <button id="btnReplay">소리 다시</button>
+        <button id="btnNext">다음 ⏭</button>
+      </div>
+      <div id="testInfo"></div>
+
+    </div>
+  </div>
+
+  <div class="footer">
+    * 브라우저 보안 정책 때문에, 처음에는 화면을 한 번 클릭해야 소리가 나오기 시작할 수 있습니다.
+  </div>
+
+  <!-- 자습 시작/종료 종소리 오디오 (파일은 같은 폴더에 두기) -->
+  <audio id="audioStudyStart" src="start.wav" preload="auto"></audio>
+  <audio id="audioStudyEnd"   src="end.wav"   preload="auto"></audio>
+
+  <script>
+    // ===== 공통 데이터 =====
+    const EVENT_DEFS = [
+      ["09:00", "오전 자습 1 시작", "study_start"],
+      ["10:20", "오전 자습 1 종료", "study_end"],
+      ["10:40", "오전 자습 2 시작", "study_start"],
+      ["12:00", "오전 자습 2 종료", "study_end"],
+      ["12:00", "과목1 1차 시험 시작", "exam_start"],
+
+      ["14:00", "오후 자습 1 시작", "study_start"],
+      ["15:40", "오후 자습 1 종료", "study_end"],
+      ["16:00", "오후 자습 2 시작", "study_start"],
+      ["17:30", "오후 자습 2 종료", "study_end"],
+      ["17:30", "과목2 1차 시험 시작", "exam_start"],
+
+      ["19:20", "저녁 자습 시작", "study_start"],
+      ["21:30", "저녁 자습 종료", "study_end"],
+      ["21:30", "과목1,2 2차 시험 시작", "exam_start"],
+
+      ["22:10", "추가 자습 시작", "study_start"],
+      ["23:10", "추가 자습 종료", "study_end"],
+    ];
+
+    const BLOCK_DEFS = [
+      ["09:00", "10:20", "오전 자습 1", "study"],
+      ["10:20", "10:40", "쉬는 시간", "break"],
+      ["10:40", "12:00", "오전 자습 2", "study"],
+      ["12:00", "12:20", "과목1 1차 시험", "exam"],
+      ["12:20", "14:00", "점심 시간", "meal"],
+
+      ["14:00", "15:40", "오후 자습 1", "study"],
+      ["15:40", "16:00", "쉬는 시간", "break"],
+      ["16:00", "17:30", "오후 자습 2", "study"],
+      ["17:30", "18:00", "과목2 1차 시험", "exam"],
+      ["18:00", "19:20", "저녁 시간", "meal"],
+
+      ["19:20", "21:30", "저녁 자습", "study"],
+      ["21:30", "22:00", "과목1,2 2차 시험", "exam"],
+
+      ["22:10", "23:10", "추가 자습", "study"],
+      ["23:10", "23:20", "수고하셨습니다 🎉", "end"],
+    ];
+
+    // 테스트 모드 스텝 (중첩 시 자습 종료 소리는 제거)
+    const TEST_STEPS = [
+      ["오전 자습 1 시작",        "study", "study_start"],
+      ["오전 자습 1 종료",        "study", "study_end"],
+      ["쉬는 시간",               "break", null],
+
+      ["오전 자습 2 시작",        "study", "study_start"],
+      ["오전 자습 2 종료",        "study", null],           // 12:00 시험과 중첩
+      ["과목1 1차 시험 시작",     "exam",  "exam_start"],
+      ["점심 시간",               "meal",  null],
+
+      ["오후 자습 1 시작",        "study", "study_start"],
+      ["오후 자습 1 종료",        "study", "study_end"],
+      ["쉬는 시간",               "break", null],
+
+      ["오후 자습 2 시작",        "study", "study_start"],
+      ["오후 자습 2 종료",        "study", null],           // 17:30 시험과 중첩
+      ["과목2 1차 시험 시작",     "exam",  "exam_start"],
+      ["저녁 시간",               "meal",  null],
+
+      ["저녁 자습 시작",          "study", "study_start"],
+      ["저녁 자습 종료",          "study", null],           // 21:30 시험과 중첩
+      ["과목1,2 2차 시험 시작",   "exam",  "exam_start"],
+
+      ["추가 자습 시작",          "study", "study_start"],
+      ["추가 자습 종료",          "study", "study_end"],
+      ["수고하셨습니다 🎉",       "end",   null],
+    ];
+
+    const PRIORITY = {
+      "exam_start": 3,
+      "study_start": 2,
+      "study_end": 1,
+    };
+
+    // ===== 유틸: 오늘 날짜의 HH:MM을 Date로 =====
+    function parseTodayTime(hm) {
+      const [h, m] = hm.split(":").map(Number);
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+    }
+
+    // ===== 이벤트/블록 데이터 준비 =====
+    const events = EVENT_DEFS.map(([t, msg, kind]) => ({
+      timeStr: t,
+      time: parseTodayTime(t),
+      msg,
+      kind,
+      done: false,
+    }));
+
+    const blocks = BLOCK_DEFS.map(([s, e, name, kind]) => ({
+      start: parseTodayTime(s),
+      end: parseTodayTime(e),
+      name,
+      kind,
+    }));
+
+    const quitTime = parseTodayTime("23:20");
+
+    // 시작 시 이미 지난 이벤트는 done 처리
+    (function markPastEvents() {
+      const now = new Date();
+      for (const e of events) {
+        if (e.time <= now) {
+          e.done = true;
+        }
+      }
+    })();
+
+    // ===== DOM 참조 =====
+    const currentEventEl = document.getElementById("currentEvent");
+    const clockEl = document.getElementById("clock");
+    const dateEl = document.getElementById("date");
+
+    const eventMinusBtn = document.getElementById("eventFontMinus");
+    const eventPlusBtn = document.getElementById("eventFontPlus");
+    const clockMinusBtn = document.getElementById("clockFontMinus");
+    const clockPlusBtn = document.getElementById("clockFontPlus");
+    const dateMinusBtn = document.getElementById("dateFontMinus");
+    const datePlusBtn = document.getElementById("dateFontPlus");
+
+    const soundToggleBtn = document.getElementById("soundToggleBtn");
+    const testControls = document.getElementById("testControls");
+    const testInfoEl = document.getElementById("testInfo");
+    const btnPrev = document.getElementById("btnPrev");
+    const btnReplay = document.getElementById("btnReplay");
+    const btnNext = document.getElementById("btnNext");
+
+    const modeRadios = document.querySelectorAll('input[name="mode"]');
+
+    const audioStudyStart = document.getElementById("audioStudyStart");
+    const audioStudyEnd = document.getElementById("audioStudyEnd");
+
+    // Web Audio로 시험 시작 삐소리 만들기
+    let audioCtx = null;
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+    }
+    function playExamBeep() {
+      if (!audioCtx) return;
+      for (let i = 0; i < 3; i++) {
+        const startTime = audioCtx.currentTime + i * 0.25;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.value = 1400;
+        gain.gain.setValueAtTime(0.2, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.2);
+      }
+    }
+
+    // 화면 아무데나 첫 클릭하면 오디오 컨텍스트 준비
+    window.addEventListener("click", () => {
+      ensureAudioContext();
+    }, { once: true });
+
+    // ===== 상태 =====
+    let mode = "real"; // "real" or "test"
+    let soundEnabled = true;
+
+    let eventFontSize = 26;
+    let clockFontSize = 42;
+    let dateFontSize = 14;
+
+    let timerId = null;
+
+    let testIndex = 0;
+
+    // ===== 폰트 적용 =====
+    function applyFontSizes() {
+      currentEventEl.style.fontSize = eventFontSize + "px";
+      clockEl.style.fontSize = clockFontSize + "px";
+      dateEl.style.fontSize = dateFontSize + "px";
+    }
+    applyFontSizes();
+
+    const MIN_FS = 8;
+    const MAX_FS = 120;
+
+    eventMinusBtn.onclick = () => {
+      eventFontSize = Math.max(MIN_FS, eventFontSize - 2);
+      applyFontSizes();
+    };
+    eventPlusBtn.onclick = () => {
+      eventFontSize = Math.min(MAX_FS, eventFontSize + 2);
+      applyFontSizes();
+    };
+    clockMinusBtn.onclick = () => {
+      clockFontSize = Math.max(MIN_FS, clockFontSize - 2);
+      applyFontSizes();
+    };
+    clockPlusBtn.onclick = () => {
+      clockFontSize = Math.min(MAX_FS, clockFontSize + 2);
+      applyFontSizes();
+    };
+    dateMinusBtn.onclick = () => {
+      dateFontSize = Math.max(MIN_FS, dateFontSize - 1);
+      applyFontSizes();
+    };
+    datePlusBtn.onclick = () => {
+      dateFontSize = Math.min(MAX_FS, dateFontSize + 1);
+      applyFontSizes();
+    };
+
+    // ===== 모드 전환 =====
+    modeRadios.forEach(r => {
+      r.addEventListener("change", () => {
+        mode = r.value;
+        if (mode === "test") {
+          testControls.style.display = "flex";
+          testInfoEl.style.display = "block";
+          showTestStep(false);
+        } else {
+          testControls.style.display = "none";
+          testInfoEl.style.display = "none";
+        }
+      });
+    });
+
+    // ===== 사운드 토글 =====
+    soundToggleBtn.onclick = () => {
+      soundEnabled = !soundEnabled;
+      if (soundEnabled) {
+        soundToggleBtn.textContent = "🔔 ON";
+        soundToggleBtn.style.color = "#BBBBBB";
+      } else {
+        soundToggleBtn.textContent = "🔕 OFF";
+        soundToggleBtn.style.color = "#555555";
+      }
+    };
+
+    // ===== 색상 결정 =====
+    function colorClassForKind(kind) {
+      switch (kind) {
+        case "study": return "event-study";
+        case "break": return "event-break";
+        case "meal":  return "event-meal";
+        case "exam":  return "event-exam";
+        case "end":   return "event-end";
+        default:      return "";
+      }
+    }
+
+    // ===== 블록 찾기 =====
+    function findBlock(now) {
+      for (const b of blocks) {
+        if (b.start <= now && now < b.end) {
+          return b;
+        }
+      }
+      return null;
+    }
+
+    // ===== 소리 재생 =====
+    function playSound(kind) {
+      if (!soundEnabled || !kind) return;
+
+      if (kind === "study_start") {
+        audioStudyStart.currentTime = 0;
+        audioStudyStart.play().catch(() => {});
+      } else if (kind === "study_end") {
+        audioStudyEnd.currentTime = 0;
+        audioStudyEnd.play().catch(() => {});
+      } else if (kind === "exam_start") {
+        playExamBeep();
+      }
+    }
+
+    // ===== 실제 모드: 이벤트 체크 =====
+    function checkEvents(now) {
+      // pending: 아직 안 울렸고 시간 지난 이벤트들
+      const pending = events.filter(e => !e.done && now >= e.time);
+      if (pending.length === 0) return;
+
+      const earliestTime = pending.reduce((minT, e) =>
+        e.time < minT ? e.time : minT, pending[0].time
+      );
+      const sameTimeEvents = pending.filter(e => e.time.getTime() === earliestTime.getTime());
+
+      // 우선순위 가장 높은 이벤트만 소리
+      let best = sameTimeEvents[0];
+      let bestPriority = PRIORITY[best.kind] || 0;
+      for (const ev of sameTimeEvents) {
+        const p = PRIORITY[ev.kind] || 0;
+        if (p > bestPriority) {
+          best = ev;
+          bestPriority = p;
+        }
+      }
+      playSound(best.kind);
+
+      // 같은 시각 이벤트는 모두 done 처리
+      for (const ev of sameTimeEvents) {
+        ev.done = true;
+      }
+    }
+
+    // ===== 테스트 모드 로직 =====
+    function getCurrentTestStep() {
+      return TEST_STEPS[testIndex];
+    }
+
+    function showTestStep(play = true) {
+      const [name, kind, soundKind] = getCurrentTestStep();
+      currentEventEl.textContent = name;
+      currentEventEl.className = "label-main " + colorClassForKind(kind);
+
+      let info = `${testIndex + 1} / ${TEST_STEPS.length}   kind=${kind}`;
+      if (soundKind) info += `, sound=${soundKind}`;
+      else info += ", sound=없음";
+      testInfoEl.textContent = info;
+
+      if (play) {
+        playSound(soundKind);
+      }
+    }
+
+    btnPrev.onclick = () => {
+      testIndex = (testIndex - 1 + TEST_STEPS.length) % TEST_STEPS.length;
+      showTestStep(true);
+    };
+    btnNext.onclick = () => {
+      testIndex = (testIndex + 1) % TEST_STEPS.length;
+      showTestStep(true);
+    };
+    btnReplay.onclick = () => {
+      const [, , soundKind] = getCurrentTestStep();
+      playSound(soundKind);
+    };
+
+    // ===== 메인 타이머 루프 =====
+    function tick() {
+      const now = new Date();
+
+      // 시계
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      const s = String(now.getSeconds()).padStart(2, "0");
+      clockEl.textContent = `${h}:${m}:${s}`;
+
+      const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+      const y = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const wd = weekdays[now.getDay()];
+      dateEl.textContent = `${y}-${mm}-${dd} (${wd})`;
+
+      if (mode === "real") {
+        if (now >= quitTime) {
+          currentEventEl.textContent = "수고하셨습니다 🎉";
+          currentEventEl.className = "label-main event-end";
+          clearInterval(timerId);
+          return;
+        }
+        const block = findBlock(now);
+        if (block) {
+          currentEventEl.textContent = block.name;
+          currentEventEl.className = "label-main " + colorClassForKind(block.kind);
+        } else {
+          currentEventEl.textContent = "일정 없음";
+          currentEventEl.className = "label-main";
+        }
+        checkEvents(now);
+      }
+
+      // 테스트 모드에서는 시간/날짜만 갱신, 이벤트 텍스트는 테스트 스텝이 담당
+    }
+
+    timerId = setInterval(tick, 1000);
+    tick(); // 처음 한 번 즉시 갱신
+  </script>
+</body>
+</html>
